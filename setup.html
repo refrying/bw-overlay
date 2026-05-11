@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Seijika Overlay - Setup</title>
+    <style>
+        /* Mojanglesフォントの定義 */
+        @font-face {
+            font-family: 'Mojangles';
+            src: url('./mojangles.ttf');
+        }
+
+        body { 
+            font-family: 'Mojangles', sans-serif; 
+            padding: 25px; 
+            background: #1a1a1a; 
+            color: #ffffff; 
+            margin: 0;
+            user-select: none;
+        }
+
+        h2 { 
+            color: #5555ff; 
+            border-bottom: 2px solid #5555ff; 
+            padding-bottom: 10px;
+            margin-top: 0;
+            text-shadow: 2px 2px 0px #00003f;
+        }
+
+        .item { margin-bottom: 20px; }
+
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-size: 14px; 
+            color: #aaa;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        input[type="text"], select { 
+            width: 100%; 
+            padding: 12px; 
+            box-sizing: border-box; 
+            background: #2a2a2a; 
+            border: 1px solid #444; 
+            color: #fff; 
+            font-family: 'Mojangles';
+            font-size: 14px;
+            outline: none;
+        }
+
+        /* フォーカス時のアウトラインを消す */
+        input:focus, select:focus, button:focus {
+            border-color: #5555ff;
+            outline: none;
+        }
+
+        #toggle-key {
+            cursor: pointer;
+            text-align: center;
+            color: #55ff55;
+            background: #333;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #5555ff;
+        }
+
+        .val-display {
+            color: #55ff55;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        .chroma-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(85, 85, 255, 0.1);
+            padding: 10px;
+            border: 1px dashed #5555ff;
+            margin-bottom: 15px;
+        }
+
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            background: #5555ff; 
+            border: none; 
+            color: #fff; 
+            font-size: 16px;
+            font-family: 'Mojangles';
+            cursor: pointer; 
+            box-shadow: 0 4px 0 #00003f;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #00003f;
+        }
+
+        .hint { 
+            font-size: 12px; 
+            color: #777; 
+            margin-top: 6px; 
+        }
+    </style>
+</head>
+<body>
+    <h2 id="title">Seijika Overlay Setup</h2>
+    
+    <div class="item">
+        <label>Hypixel API Key</label>
+        <input type="text" id="api-key" placeholder="/api new">
+    </div>
+
+    <div class="item">
+        <label>Minecraft Client</label>
+        <select id="client">
+            <option value="lunar">Lunar Client</option>
+            <option value="blc">Badlion Client</option>
+        </select>
+    </div>
+
+    <div class="item">
+        <label>Show/Hide Key (Toggle)</label>
+        <input type="text" id="toggle-key" readonly>
+        <p class="hint">ここをクリックしてキーを押してください。</p>
+    </div>
+
+    <div class="item">
+        <label>Display Time (表示時間): <span id="time-val" class="val-display">4</span>s</label>
+        <input type="range" id="display-time" min="1" max="30" step="1">
+    </div>
+
+    <div class="item">
+        <label>Accent Color (テーマ色)</label>
+        <input type="color" id="accent-color" style="width: 100%; height: 40px; background: #2a2a2a; border: 1px solid #444; padding: 5px; cursor: pointer;">
+    </div>
+
+    <div class="item chroma-container">
+        <input type="checkbox" id="chroma-mode">
+        <label style="margin-bottom: 0; color: #fff; cursor: pointer;">Enable Chroma Mode (虹色)</label>
+    </div>
+
+    <button id="save">Save and Launch</button>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const apiKeyInput = document.getElementById('api-key');
+        const clientSelect = document.getElementById('client');
+        const keyInput = document.getElementById('toggle-key');
+        const colorInput = document.getElementById('accent-color');
+        const chromaCheck = document.getElementById('chroma-mode');
+        const timeInput = document.getElementById('display-time');
+        const timeVal = document.getElementById('time-val');
+        const title = document.getElementById('title');
+
+        // 設定の読み込み
+        ipcRenderer.invoke('get-stored-data').then(data => {
+            apiKeyInput.value = data.apiKey || '';
+            clientSelect.value = data.selectedClient || 'lunar';
+            keyInput.value = data.toggleKey || 'Tab';
+            colorInput.value = data.accentColor || '#5555ff';
+            chromaCheck.checked = data.chromaMode || false;
+            timeInput.value = data.displayTime || 4;
+            timeVal.innerText = timeInput.value;
+            updatePreview(colorInput.value);
+        });
+
+        // 表示時間の数値更新
+        timeInput.addEventListener('input', () => {
+            timeVal.innerText = timeInput.value;
+        });
+
+        // プレビュー色更新
+        colorInput.addEventListener('input', (e) => {
+            updatePreview(e.target.value);
+        });
+
+        function updatePreview(color) {
+            title.style.color = color;
+            title.style.borderBottomColor = color;
+        }
+
+        // キー入力をキャプチャ (Tabキーの逃亡を阻止)
+        keyInput.addEventListener('keydown', (e) => {
+            e.preventDefault();   // ブラウザのデフォルト挙動を止める
+            e.stopPropagation();  // イベントの伝播を止める
+
+            let key = e.key;
+            if (key === " ") key = "Space";
+            
+            if (key.length > 1) {
+                key = key.charAt(0).toUpperCase() + key.slice(1);
+            } else {
+                key = key.toUpperCase();
+            }
+
+            keyInput.value = key;
+        });
+
+        // 保存送信
+        document.getElementById('save').addEventListener('click', () => {
+            const data = {
+                key: apiKeyInput.value.trim(),
+                client: clientSelect.value,
+                toggleKey: keyInput.value,
+                accentColor: colorInput.value,
+                chromaMode: chromaCheck.checked,
+                displayTime: parseInt(timeInput.value)
+            };
+
+            if (!data.key) {
+                alert("APIキーを入力してください！");
+                return;
+            }
+
+            ipcRenderer.send('submit-api', data);
+        });
+    </script>
+</body>
+</html>

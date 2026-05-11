@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /* Mojanglesフォントの定義 */
+        @font-face {
+            font-family: 'Mojangles';
+            src: url('./mojangles.ttf');
+        }
+
+        /* 虹色アニメーションの定義 */
+        @keyframes chroma-anim {
+            0% { border-color: #ff0000; color: #ff0000; }
+            20% { border-color: #ffff00; color: #ffff00; }
+            40% { border-color: #00ff00; color: #00ff00; }
+            60% { border-color: #00ffff; color: #00ffff; }
+            80% { border-color: #0000ff; color: #0000ff; }
+            100% { border-color: #ff00ff; color: #ff00ff; }
+        }
+
+        .chroma-border { animation: chroma-anim 5s linear infinite !important; }
+        .chroma-text { animation: chroma-anim 5s linear infinite !important; border-bottom-color: transparent !important; }
+
+        body {
+            margin: 0;
+            padding: 5px;
+            overflow: hidden;
+            font-family: 'Mojangles', sans-serif;
+            background-color: transparent;
+        }
+
+        #container {
+            display: block;
+            width: 540px; 
+            background-color: rgba(15, 15, 15, 0.95);
+            padding: 12px;
+            border: 2px solid #5555ff; 
+            border-radius: 0px; 
+            box-sizing: border-box;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            /* ウィンドウ移動用のドラッグ領域 */
+            -webkit-app-region: drag;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #ffffff;
+            table-layout: fixed;
+            /* テーブル内ではドラッグを無効化（誤作動防止） */
+            -webkit-app-region: no-drag;
+        }
+
+        th:nth-child(1) { width: 45%; }
+        th:nth-child(2) { width: 12%; }
+        th:nth-child(3) { width: 13%; }
+        th:nth-child(4) { width: 13%; }
+        th:nth-child(5) { width: 17%; }
+
+        thead th {
+            text-align: left;
+            color: #5555ff; 
+            font-size: 14px;
+            padding: 4px 8px;
+            border-bottom: 2px solid #5555ff; 
+            text-transform: lowercase;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        td {
+            padding: 8px 8px;
+            font-size: 18px;
+            font-weight: normal;
+            text-shadow: 2px 2px 0px #3f3f3f; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ws-tag {
+            font-size: 16px;
+            color: #ffaa00; 
+            text-shadow: 2px 2px 0px #3f2a00;
+        }
+
+        .status-tag {
+            font-size: 12px;
+            padding: 1px 5px;
+            border: 1px solid;
+            background-color: rgba(0, 0, 0, 0.6);
+            text-transform: uppercase;
+            display: inline-block;
+            vertical-align: middle;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        #empty-msg {
+            color: #888;
+            text-align: center;
+            padding: 15px;
+            font-size: 16px;
+            text-shadow: 1px 1px 0px #000;
+            -webkit-app-region: drag;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <table id="stats-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>ign</th>
+                    <th>star</th>
+                    <th>fkdr</th>
+                    <th>wlr</th>
+                    <th>tag</th>
+                </tr>
+            </thead>
+            <tbody id="stats-body"></tbody>
+        </table>
+        <div id="empty-msg">Waiting for /who...</div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const body = document.getElementById('stats-body');
+        const table = document.getElementById('stats-table');
+        const emptyMsg = document.getElementById('empty-msg');
+
+        // 1. 保存された外観設定（Color/Chroma）の反映
+        ipcRenderer.invoke('get-stored-data').then(data => {
+            const accent = data.accentColor || '#5555ff';
+            const isChroma = data.chromaMode || false;
+            const container = document.getElementById('container');
+            const ths = document.querySelectorAll('thead th');
+            
+            if (isChroma) {
+                container.classList.add('chroma-border');
+                ths.forEach(th => th.classList.add('chroma-text'));
+            } else {
+                container.style.borderColor = accent;
+                ths.forEach(th => {
+                    th.style.color = accent;
+                    th.style.borderBottomColor = accent;
+                });
+            }
+        });
+
+        // 2. 統計データの更新
+        ipcRenderer.on('update-stats', (event, statsList) => {
+            body.innerHTML = "";
+            
+            // データが空（リセット時）
+            if (!statsList || statsList.length === 0) {
+                table.style.display = "none";
+                emptyMsg.style.display = "block";
+                return;
+            }
+
+            table.style.display = "table";
+            emptyMsg.style.display = "none";
+
+            statsList.forEach(s => {
+                const row = document.createElement('tr');
+                let tagHtml = "";
+                
+                // 優先順位: ALT/NICK を WS よりも優先して表示
+                if (s.tag === "ALT" || s.tag === "NICK") {
+                    tagHtml = `<span class="status-tag" style="border-color: ${s.tagColor}; color: ${s.tagColor};">${s.tag}</span>`;
+                } else if (s.ws && s.ws > 0) {
+                    tagHtml = `<span class="ws-tag">${s.ws}ws</span>`;
+                }
+
+                row.innerHTML = `
+                    <td style="color: ${s.rankColor}">${s.name}</td>
+                    <td style="color: ${s.starColor}">${s.star}</td>
+                    <td style="color: ${s.fkdrColor}">${s.fkdr}</td>
+                    <td style="color: ${s.wlrColor}">${s.wlr}</td>
+                    <td>${tagHtml}</td>
+                `;
+                body.appendChild(row);
+            });
+        });
+    </script>
+</body>
+</html>

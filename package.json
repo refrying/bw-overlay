@@ -1,0 +1,51 @@
+{
+  "name": "seijika-overlay",
+  "productName": "Seijika Overlay",
+  "version": "1.0.0",
+  "description": "Hypixel Bedwars Stats Overlay",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "hypixel",
+    "bedwars",
+    "stats",
+    "overlay"
+  ],
+  "author": "YourName",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "electron-store": "^8.1.0",
+    "tail": "^2.2.6"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.seijika.overlay",
+    "productName": "Seijika Overlay",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "icon.png",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "files": [
+      "**/*",
+      "icon.png",
+      "mojangles.ttf"
+    ]
+  }
+}
